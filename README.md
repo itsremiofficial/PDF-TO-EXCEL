@@ -3,25 +3,31 @@
 Drop in a PDF containing a table, drag a box around the table, tick the columns
 you want, download an `.xlsx`.
 
-Everything runs in the browser. There is no backend, no API key and no upload —
-the PDF never leaves the machine it is opened on. That also means it deploys to
-Vercel as plain static files, with no serverless functions and no running cost.
+Rendering, OCR and AI upscaling all run in the browser — the PDF never leaves
+the machine it is opened on. The one exception is the optional "Extract with AI"
+button, which sends the selected table area to Google Gemini through
+`/api/gemini`. That route is the only server-side code, and it exists so the API
+key stays on the server instead of shipping inside the page.
 
 ## Deploying to Vercel
 
 ```bash
 npm install
-npm run build     # emits ./out
+npm run build
 ```
 
 Push the repo and import it at [vercel.com/new](https://vercel.com/new). Vercel
-detects Next.js automatically; `next.config.mjs` sets `output: 'export'`, so the
-result is a static site. No environment variables are needed.
+detects Next.js automatically. Set `GEMINI_API_KEY` in the project's environment
+variables (free key at [aistudio.google.com/apikey](https://aistudio.google.com/apikey))
+to enable the AI read; everything else works without it. The app needs a Node
+host for that one route, so plain static hosting will not serve it.
 
 Local development:
 
 ```bash
+cp .env.example .env.local   # then paste your GEMINI_API_KEY into it
 npm run dev       # http://localhost:3000
+npm test          # node's built-in runner
 ```
 
 ## How it reads a table

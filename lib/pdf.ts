@@ -90,3 +90,32 @@ export async function getTextItems(page: PDFPageProxy, scale: number): Promise<T
   }
   return out;
 }
+
+// ---------------------------------------------------------------------------
+// Image file support — loads PNG / JPG / BMP / WebP / TIFF into the same
+// RenderedPage shape so the rest of the pipeline works unchanged.
+// ---------------------------------------------------------------------------
+
+const IMAGE_TYPES = /^(image\/png|image\/jpe?g|image\/bmp|image\/webp|image\/tiff?)$/;
+
+export function isImageFile(file: File): boolean {
+  return IMAGE_TYPES.test(file.type) || /\.(png|jpe?g|bmp|webp|tiff?)$/i.test(file.name);
+}
+
+export async function loadImageFile(file: Blob, targetWidth = 4400): Promise<RenderedPage> {
+  const bmp = await createImageBitmap(file);
+  const scale = Math.min(targetWidth / bmp.width, 1);
+  const w = Math.ceil(bmp.width * scale);
+  const h = Math.ceil(bmp.height * scale);
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(0, 0, w, h);
+  ctx.drawImage(bmp, 0, 0, w, h);
+  bmp.close();
+  const img = ctx.getImageData(0, 0, w, h);
+  const { toGray } = await import('./grid');
+  return { canvas, gray: toGray(img.data, w, h), width: w, height: h, scale };
+}

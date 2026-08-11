@@ -1,8 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Everything runs in the browser, so the whole thing ships as static files.
-  // No serverless functions, no API keys, no request-body limits on Vercel.
-  output: 'export',
+  // Not a static export: /api/gemini needs a server so the API key never
+  // reaches the browser. Everything else (rendering, OCR, upscaling) still
+  // runs client-side. Deploy to a Node host (Vercel and similar); plain static
+  // hosting will not serve the API route.
   reactStrictMode: true,
   images: { unoptimized: true },
 };

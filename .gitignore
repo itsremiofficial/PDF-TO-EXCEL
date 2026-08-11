@@ -6,3 +6,8 @@ next-env.d.ts
 *.tsbuildinfo
 .vercel
 .DS_Store
+
+# local env / API keys
+.env
+.env.local
+.env.*.local
