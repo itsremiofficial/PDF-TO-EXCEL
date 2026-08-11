@@ -40,6 +40,26 @@ const clean = (s: string) =>
     .replace(/^[|[\]{}()<>_.,;:!\s-]+|[|[\]{}()<>_,;:!\s]+$/g, '')
     .trim();
 
+/**
+ * Drop page chrome from the ends of a table.
+ *
+ * A title bar, a toolbar or a strip of footer buttons is a line that lands in
+ * one or two columns, while every line of the table itself fills most of them.
+ * They matter because the first surviving line becomes the header row: leave a
+ * title in and the real headers are read as data, one row out of step for the
+ * rest of the sheet. Only the ends are trimmed, and only when the table has
+ * lines that clearly do fill their width — otherwise a genuinely sparse table
+ * would eat itself.
+ */
+function trimPageChrome(body: Cell[][], nCols: number): Cell[][] {
+  const filled = (r: Cell[]) => r.filter((c) => c.text).length / nCols;
+  if (body.map(filled).filter((f) => f >= 0.6).length < 2) return body;
+  const out = [...body];
+  while (out.length > 2 && filled(out[0]) < 0.3) out.shift();
+  while (out.length > 2 && filled(out[out.length - 1]) < 0.3) out.pop();
+  return out;
+}
+
 // ---------------------------------------------------------------------------
 // Text-layer path — exact, no OCR
 // ---------------------------------------------------------------------------
@@ -121,18 +141,7 @@ export function extractFromText(
       return { text: clean(hits.map((t) => t.str).join(' ')), unsure: false, confidence: -1 };
     });
 
-  const body = lines.map(toRow);
-
-  // A page title, a toolbar or a footer button strip is a line that lands in
-  // one or two columns while the table's own lines fill most of them. Dropping
-  // those off each end is what stops the title from being read as the header
-  // row, which then pushes every real header down into the data.
-  const filled = (r: Cell[]) => r.filter((c) => c.text).length / columns.length;
-  const wide = body.map(filled).filter((f) => f >= 0.6).length;
-  if (wide >= 2) {
-    while (body.length > 2 && filled(body[0]) < 0.3) body.shift();
-    while (body.length > 2 && filled(body[body.length - 1]) < 0.3) body.pop();
-  }
+  const body = trimPageChrome(lines.map(toRow), columns.length);
 
   return {
     headers: body[0].map((c) => c.text),
@@ -397,8 +406,11 @@ export async function extractByOcr(
     );
   }
 
-  const headers = out[0].map((c) => c.text);
-  const rows = out.slice(1);
+  // Cheap here: the cells are already read, so this only decides which of them
+  // are part of the table.
+  const body = trimPageChrome(out, nCols);
+  const headers = body[0].map((c) => c.text);
+  const rows = body.slice(1);
   flagOutliers(headers, rows);
   return { headers, rows, source: 'ocr' };
 }
