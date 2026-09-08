@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { Cell } from './extract.ts';
 import {
+  buildExportFileName,
   buildRequiredExport,
   prepareRequiredSourceTable,
   REQUIRED_EXPORT_HEADERS,
@@ -113,4 +114,17 @@ test('recognizes the expected 22-column report when its OCR headers are garbled'
     'HL1060K6634086',
     '231878',
   ]);
+});
+
+test('adds local date, time, and record count to the exported filename', () => {
+  const generatedAt = new Date(2026, 8, 8, 14, 5, 9);
+
+  assert.equal(
+    buildExportFileName('test.pdf', 18, generatedAt),
+    'test_2026-09-08_14-05-09_18-records.xlsx',
+  );
+  assert.equal(
+    buildExportFileName('scan.PNG', 1, generatedAt),
+    'scan_2026-09-08_14-05-09_1-record.xlsx',
+  );
 });

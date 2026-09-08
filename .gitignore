@@ -1,5 +1,6 @@
 node_modules/
 .next/
+.next-dev/
 out/
 public/pdf.worker.min.mjs
 next-env.d.ts

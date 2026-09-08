@@ -13,29 +13,56 @@ interface Props {
 export default function RegionCanvas({ page, region, grid, onChange }: Props) {
   const ref = useRef<HTMLCanvasElement>(null);
   const [drag, setDrag] = useState<{ x0: number; y0: number; x1: number; y1: number } | null>(null);
-  const [view, setView] = useState(1);
+  const [size, setSize] = useState({ width: 0, height: 0, view: 1 });
+
+  useEffect(() => {
+    const parent = ref.current?.parentElement;
+    if (!parent) return;
+
+    const measure = () => {
+      const width = Math.max(1, Math.min(1200, parent.clientWidth, page.width));
+      const view = width / page.width;
+      const height = Math.max(1, Math.round(page.height * view));
+      setSize((current) =>
+        current.width === width && current.height === height
+          ? current
+          : { width, height, view },
+      );
+    };
+
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(parent);
+    return () => observer.disconnect();
+  }, [page]);
 
   useEffect(() => {
     const cv = ref.current;
-    if (!cv) return;
-    const maxW = Math.min(1100, cv.parentElement?.clientWidth ?? 1100);
-    const s = Math.min(1, maxW / page.width);
-    setView(s);
-    cv.width = Math.round(page.width * s);
-    cv.height = Math.round(page.height * s);
+    if (!cv || !size.width || !size.height) return;
+    const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+    cv.width = Math.round(size.width * pixelRatio);
+    cv.height = Math.round(size.height * pixelRatio);
+    cv.style.width = `${size.width}px`;
+    cv.style.height = `${size.height}px`;
 
     const ctx = cv.getContext('2d')!;
-    ctx.clearRect(0, 0, cv.width, cv.height);
-    ctx.drawImage(page.canvas, 0, 0, cv.width, cv.height);
+    ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+    ctx.clearRect(0, 0, size.width, size.height);
+    ctx.drawImage(page.canvas, 0, 0, size.width, size.height);
 
-    const r = { x: region.x * s, y: region.y * s, w: region.w * s, h: region.h * s };
+    const r = {
+      x: region.x * size.view,
+      y: region.y * size.view,
+      w: region.w * size.view,
+      h: region.h * size.view,
+    };
     ctx.fillStyle = 'rgba(15,23,42,.55)';
-    ctx.fillRect(0, 0, cv.width, r.y);
-    ctx.fillRect(0, r.y + r.h, cv.width, cv.height - r.y - r.h);
+    ctx.fillRect(0, 0, size.width, r.y);
+    ctx.fillRect(0, r.y + r.h, size.width, size.height - r.y - r.h);
     ctx.fillRect(0, r.y, r.x, r.h);
-    ctx.fillRect(r.x + r.w, r.y, cv.width - r.x - r.w, r.h);
+    ctx.fillRect(r.x + r.w, r.y, size.width - r.x - r.w, r.h);
 
-    ctx.strokeStyle = 'oklch(0.623 0.214 259.815)';
+    ctx.strokeStyle = 'oklch(0.62 0.19 258)';
     ctx.lineWidth = 2;
     ctx.strokeRect(r.x, r.y, r.w, r.h);
 
@@ -43,18 +70,18 @@ export default function RegionCanvas({ page, region, grid, onChange }: Props) {
       ctx.lineWidth = 1;
       ctx.strokeStyle = 'oklch(0.723 0.191 149.579)';
       for (const row of grid.rows) {
-        const y = r.y + row.s * s;
+        const y = r.y + row.s * size.view;
         ctx.beginPath();
-        ctx.moveTo(r.x + grid.minX * s, y);
-        ctx.lineTo(r.x + grid.maxX * s, y);
+        ctx.moveTo(r.x + grid.minX * size.view, y);
+        ctx.lineTo(r.x + grid.maxX * size.view, y);
         ctx.stroke();
       }
       ctx.strokeStyle = 'oklch(0.704 0.191 22.216)';
       for (const col of grid.columns.slice(1)) {
-        const x = r.x + col.x0 * s;
+        const x = r.x + col.x0 * size.view;
         ctx.beginPath();
-        ctx.moveTo(x, r.y + grid.minY * s);
-        ctx.lineTo(x, r.y + grid.maxY * s);
+        ctx.moveTo(x, r.y + grid.minY * size.view);
+        ctx.lineTo(x, r.y + grid.maxY * size.view);
         ctx.stroke();
       }
     }
@@ -71,7 +98,7 @@ export default function RegionCanvas({ page, region, grid, onChange }: Props) {
       );
       ctx.setLineDash([]);
     }
-  }, [page, region, grid, drag]);
+  }, [page, region, grid, drag, size]);
 
   const pos = (e: React.PointerEvent) => {
     const b = ref.current!.getBoundingClientRect();
@@ -81,7 +108,10 @@ export default function RegionCanvas({ page, region, grid, onChange }: Props) {
   return (
     <canvas
       ref={ref}
-      className="block w-full cursor-crosshair touch-none rounded-lg border border-border"
+      className="block max-w-full cursor-crosshair touch-none rounded-xl border border-border bg-white shadow-inner focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+      role="img"
+      tabIndex={0}
+      aria-label="Source page with the detected table area. Drag to choose a different area."
       onPointerDown={(e) => {
         (e.target as Element).setPointerCapture(e.pointerId);
         const p = pos(e);
@@ -98,13 +128,16 @@ export default function RegionCanvas({ page, region, grid, onChange }: Props) {
         const h = Math.abs(drag.y1 - drag.y0);
         setDrag(null);
         if (w < 20 || h < 20) return;
+        const x = Math.max(0, Math.round(Math.min(drag.x0, drag.x1) / size.view));
+        const y = Math.max(0, Math.round(Math.min(drag.y0, drag.y1) / size.view));
         onChange({
-          x: Math.round(Math.min(drag.x0, drag.x1) / view),
-          y: Math.round(Math.min(drag.y0, drag.y1) / view),
-          w: Math.round(w / view),
-          h: Math.round(h / view),
+          x,
+          y,
+          w: Math.min(page.width - x, Math.round(w / size.view)),
+          h: Math.min(page.height - y, Math.round(h / size.view)),
         });
       }}
+      onPointerCancel={() => setDrag(null)}
     />
   );
 }

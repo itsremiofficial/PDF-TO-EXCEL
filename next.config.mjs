@@ -1,3 +1,5 @@
+import { PHASE_DEVELOPMENT_SERVER } from 'next/constants.js';
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // Not a static export: /api/gemini needs a server so the API key never
@@ -8,4 +10,11 @@ const nextConfig = {
   images: { unoptimized: true },
 };
 
-export default nextConfig;
+// Development and production builds must not write to the same directory.
+// Otherwise `next build` can replace hashed browser chunks while `next dev`
+// is still serving a page that references them, causing ChunkLoadError for
+// dynamically imported modules such as pdfjs-dist.
+export default (phase) => ({
+  ...nextConfig,
+  distDir: phase === PHASE_DEVELOPMENT_SERVER ? '.next-dev' : '.next',
+});

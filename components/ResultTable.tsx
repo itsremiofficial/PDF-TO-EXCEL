@@ -12,24 +12,30 @@ interface Props {
 export default function ResultTable({ headers, rows, selected, onEdit }: Props) {
   if (!selected.length) {
     return (
-      <div className="rounded-md border border-border bg-muted/30 px-4 py-8 text-center">
+      <div className="rounded-xl border border-border bg-muted/20 px-4 py-10 text-center">
         <p className="text-sm text-muted-foreground">Select at least one column.</p>
       </div>
     );
   }
 
   return (
-    <div className="overflow-auto max-h-[60vh] rounded-md border border-border">
-      <table className="w-full border-collapse text-sm">
+    <div
+      className="max-h-[min(62vh,680px)] overflow-auto rounded-xl border border-border bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+      tabIndex={0}
+      role="region"
+      aria-label={`Extracted report with ${rows.length} rows and ${selected.length} columns`}
+    >
+      <table className="w-max min-w-full border-separate border-spacing-0 text-sm">
         <thead>
-          <tr className="border-b border-border bg-muted/50">
-            <th className="sticky top-0 z-10 bg-muted/50 px-3 py-2.5 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          <tr>
+            <th className="sticky left-0 top-0 z-30 border-b border-r border-border bg-muted px-3 py-3 text-right text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
               #
             </th>
             {selected.map((i) => (
               <th
                 key={i}
-                className="sticky top-0 z-10 bg-muted/50 px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground"
+                scope="col"
+                className="sticky top-0 z-20 min-w-44 border-b border-r border-border bg-muted px-3 py-3 text-left text-xs font-semibold uppercase tracking-[0.09em] text-muted-foreground last:border-r-0"
               >
                 {headers[i] || `Column ${i + 1}`}
               </th>
@@ -38,26 +44,47 @@ export default function ResultTable({ headers, rows, selected, onEdit }: Props) 
         </thead>
         <tbody>
           {rows.map((row, ri) => (
-            <tr key={ri} className="border-b border-border transition-colors hover:bg-muted/30 last:border-0">
-              <td className="px-3 py-2 text-right font-mono tabular-nums text-muted-foreground">
+            <tr key={ri} className="group hover:bg-muted/25">
+              <th
+                scope="row"
+                className="sticky left-0 z-10 w-12 border-b border-r border-border bg-card px-3 py-2.5 text-right font-mono text-xs font-normal tabular-nums text-muted-foreground group-hover:bg-muted"
+              >
                 {ri + 1}
-              </td>
+              </th>
               {selected.map((ci) => {
                 const cell = row[ci];
                 return (
                   <td
                     key={ci}
-                    className={`px-3 py-2 transition-colors focus-within:outline-2 focus-within:outline-ring focus-within:-outline-offset-2 ${
-                      cell?.unsure
-                        ? 'bg-destructive/10 text-foreground'
-                        : 'text-foreground'
-                    }`}
-                    title={cell?.unsure ? 'Low confidence - please check against the PDF' : undefined}
-                    contentEditable
-                    suppressContentEditableWarning
-                    onBlur={(e) => onEdit(ri, ci, e.currentTarget.textContent ?? '')}
+                    className={`border-b border-r border-border p-0 last:border-r-0 ${cell?.unsure ? 'bg-amber-500/10' : 'bg-transparent'}`}
                   >
-                    {cell?.text ?? ''}
+                    <div
+                      className={`min-h-10 min-w-44 whitespace-nowrap px-3 py-2.5 text-foreground outline-none transition-colors focus:bg-primary/5 focus:shadow-[inset_0_0_0_2px_var(--color-ring)] ${ci === 1 ? '' : 'font-mono tabular-nums'}`}
+                      contentEditable
+                      suppressContentEditableWarning
+                      role="textbox"
+                      tabIndex={0}
+                      spellCheck={false}
+                      aria-label={`${headers[ci] || `Column ${ci + 1}`}, row ${ri + 1}`}
+                      aria-invalid={cell?.unsure || undefined}
+                      title={cell?.unsure ? 'Low confidence — check this value against the source file' : 'Click to edit'}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter') {
+                          event.preventDefault();
+                          event.currentTarget.blur();
+                        }
+                        if (event.key === 'Escape') {
+                          event.currentTarget.textContent = cell?.text ?? '';
+                          event.currentTarget.blur();
+                        }
+                      }}
+                      onBlur={(event) => {
+                        const value = (event.currentTarget.textContent ?? '').trim();
+                        if (value !== (cell?.text ?? '')) onEdit(ri, ci, value);
+                      }}
+                    >
+                      {cell?.text ?? ''}
+                    </div>
                   </td>
                 );
               })}
