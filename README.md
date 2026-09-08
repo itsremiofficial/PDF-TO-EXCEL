@@ -1,7 +1,7 @@
 # PDF table → Excel
 
-Drop in a PDF containing a table, drag a box around the table, tick the columns
-you want, download an `.xlsx`.
+Drop in a PDF containing a table, check the extracted values, and download an
+`.xlsx` in the required installer-payment format.
 
 Rendering, OCR and AI upscaling all run in the browser — the PDF never leaves
 the machine it is opened on. The one exception is the optional "Extract with AI"
@@ -87,12 +87,23 @@ Four things reduce the damage, all automatic:
   common spelling. Columns of mostly-unique values are deliberately left alone,
   since snapping those would silently merge distinct records.
 
-Anything still suspect is highlighted in the preview and listed in an optional
-`REVIEW?` column in the spreadsheet. A cell is flagged when the three readings
-disagreed, or when its length or digit/letter shape differs from the rest of its
-column. **Flags are a hint, not a guarantee — a confidently wrong reading looks
-clean.** Every cell in the preview is editable; fix them there and the export
-picks up the correction.
+Anything still suspect is highlighted in the preview. A cell is flagged when
+the three readings disagreed, or when its length or digit/letter shape differs
+from the rest of its column. **Flags are a hint, not a guarantee — a confidently
+wrong reading looks clean.** Every cell in the preview is editable; fix it there
+and the export picks up the correction.
+
+## Export format
+
+The downloaded workbook always contains these columns in order:
+
+1. `Installer Code` from `INSTALLER CODE`
+2. `Reward Account Title` from `CUSTOMER A.C TITLE`
+3. `Reward Account Number` from `CUSTOMER ACCOUNT`
+4. `Serial Number` from `SERIAL NUMBER`
+5. `Installer Transaction ID` from `TRAN. ID`
+6. `Referrer Transaction ID`, left empty
+7. `Payment Method`, filled with `UBANK`
 
 > If you can obtain the same page as a real PDF rather than a screenshot — in
 > the browser, `Ctrl+P` → *Save as PDF* — do that instead. The text layer is

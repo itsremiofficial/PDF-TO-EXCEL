@@ -306,8 +306,15 @@ export interface OcrOptions {
   signal?: AbortSignal;
 }
 
-const BASE_PARAMS = {
+const HEADER_PARAMS = {
   tessedit_pageseg_mode: '6' as never,
+  preserve_interword_spaces: '1',
+};
+
+const DATA_PARAMS = {
+  // Every body cell in the supported reports is a single line. PSM 7 stops
+  // Tesseract from inventing additional lines or page structure inside a crop.
+  tessedit_pageseg_mode: '7' as never,
   preserve_interword_spaces: '1',
 };
 
@@ -382,7 +389,7 @@ export async function extractByOcr(
   // Headers are prose labels, never codes, so they are read with no whitelist.
   // Doing them as their own pass removes the two setParameters calls the old
   // code paid per header cell to flip the whitelist off and back on.
-  await Promise.all(pool.map((w) => w.setParameters({ ...BASE_PARAMS, tessedit_char_whitelist: '' })));
+  await Promise.all(pool.map((w) => w.setParameters({ ...HEADER_PARAMS, tessedit_char_whitelist: '' })));
   await runLanes(
     grid.columns.map((_, ci) => ({ ri: 0, ci })),
     (b) => [scaleFor(b, grid.textH)],
@@ -393,7 +400,7 @@ export async function extractByOcr(
     if (signal?.aborted) throw new DOMException('aborted', 'AbortError');
     const charset = opts.charsets?.[ci] ?? '';
     await Promise.all(
-      pool.map((w) => w.setParameters({ ...BASE_PARAMS, tessedit_char_whitelist: charset })),
+      pool.map((w) => w.setParameters({ ...DATA_PARAMS, tessedit_char_whitelist: charset })),
     );
     await runLanes(
       Array.from({ length: nRows - 1 }, (_, k) => ({ ri: k + 1, ci })),

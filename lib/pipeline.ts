@@ -110,11 +110,6 @@ export async function runPipeline(file: File, opts: PipelineOptions = {}): Promi
   const { page, textItems } = await load(file, onStage);
   throwIfAborted(signal);
 
-  // No text layer means the image path is certain, so start pulling the ~5MB
-  // TF.js runtime and the model weights now — they download while the region
-  // is being located instead of adding their latency to the upscale step.
-  if (textItems.length <= 20) prewarmUpscaler();
-
   onStage?.('detect', 'Locating the table...');
   let region = guessTableRegion(page.gray, page.width, page.height);
   // Kept in original-page coordinates: enhancement rebases `region` onto its
@@ -122,6 +117,11 @@ export async function runPipeline(file: File, opts: PipelineOptions = {}): Promi
   const sourceRegion = region;
   let grid = analyse(page.gray, page.width, page.height, region, { gutterFactor });
   opts.onPage?.({ page, region, grid, textItems });
+
+  // Photo-trained super-resolution can hallucinate strokes in small table
+  // text. Keep it for ordinary documents, but dense reports are safer with the
+  // deterministic text resampler below.
+  if (textItems.length <= 20 && grid.columns.length < 10) prewarmUpscaler();
 
   // --- exact path ---------------------------------------------------------
   if (textItems.length > 20) {
@@ -137,7 +137,13 @@ export async function runPipeline(file: File, opts: PipelineOptions = {}): Promi
 
   // --- enhance ------------------------------------------------------------
   onStage?.('enhance', 'Checking whether the table needs sharpening...');
-  const enhanced = await enhanceRegion(page, region, grid.textH, opts);
+  const enhanced =
+    grid.columns.length >= 10
+      ? enhanceForOcr(page, region, {
+          textH: grid.textH,
+          onProgress: (label) => opts.onStage?.('enhance', label),
+        })
+      : await enhanceRegion(page, region, grid.textH, opts);
   throwIfAborted(signal);
 
   let view: RenderedPage = page;

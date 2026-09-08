@@ -26,16 +26,15 @@ import { Slider } from "@/components/ui/slider";
 import { analyse, guessTableRegion, type Grid, type Region } from "@/lib/grid";
 import type { RenderedPage } from "@/lib/pdf";
 import type { Cell, Table } from "@/lib/extract";
-import { downloadXlsx } from "@/lib/xlsx";
+import { downloadXlsx, prepareRequiredSourceTable } from "@/lib/xlsx";
 import { runPipeline, readRegion, type Engine } from "@/lib/pipeline";
 
 const PREFERRED = [
   "INSTALLER CODE",
-  "REWARD ACCOUNT TITLE",
+  "CUSTOMER A.C TITLE",
   "CUSTOMER ACCOUNT",
   "SERIAL NUMBER",
   "TRAN. ID",
-  "CUSTOMER BANK",
 ];
 
 const norm = (s: string) => s.toUpperCase().replace(/[^A-Z0-9]/g, "");
@@ -58,7 +57,6 @@ export default function Home() {
   const [statusKind, setStatusKind] = useState<"info" | "error">("info");
   const [busy, setBusy] = useState(false);
   const [dragging, setDragging] = useState(false);
-  const [review, setReview] = useState(true);
   const [gutter, setGutter] = useState(1.2);
   const abort = useRef<AbortController | null>(null);
 
@@ -67,7 +65,8 @@ export default function Home() {
     setStatusKind(kind);
   }, []);
 
-  const applyTable = useCallback((t: Table) => {
+  const applyTable = useCallback((raw: Table) => {
+    const t = prepareRequiredSourceTable(raw);
     setTable(t);
     const cols = t.headers.map((h, i) => ({ h: norm(h), i }));
     const want = PREFERRED.map(norm);
@@ -264,9 +263,9 @@ export default function Home() {
           {table && (
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">Columns to export</CardTitle>
+                <CardTitle className="text-base">Source columns</CardTitle>
                 <CardDescription>
-                  Click a column to include or drop it.
+                  Choose the source columns used to build the required export format.
                   {engine && (
                     <Badge variant="secondary" className="ml-2">
                       {ENGINE_LABEL[engine]}
@@ -338,24 +337,12 @@ export default function Home() {
                         rows: table.rows,
                         selected,
                         fileName: fileName || "table",
-                        includeReviewColumn: review && engine !== "text",
                       })
                     }
                   >
                     <Download className="size-4" />
                     Download .xlsx
                   </Button>
-                  {engine !== "text" && (
-                    <label className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <input
-                        type="checkbox"
-                        checked={review}
-                        onChange={(e) => setReview(e.target.checked)}
-                        className="size-4 rounded border-input accent-primary"
-                      />
-                      Include a REVIEW? column
-                    </label>
-                  )}
                 </div>
               </CardContent>
             </Card>
